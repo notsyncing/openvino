@@ -134,6 +134,15 @@ ov::OutputVector TranslateSession::apply_op_translator(const std::shared_ptr<Dec
 std::shared_ptr<ov::Node> TranslateSession::create_const_or_param(
     const std::string& name,
     const std::shared_ptr<ov::frontend::onnx::TensorONNXPlace>& input_tensor) {
+    // If the tensor already exists (e.g. duplicate from parent-scope injection),
+    // skip creating a new parameter — the existing one is authoritative.
+    const auto existing_in_tv = m_tensor_values.find(name);
+    if (existing_in_tv != m_tensor_values.end()) {
+        if (!name.empty()) {
+            input_tensor->translate(existing_in_tv->second);
+        }
+        return existing_in_tv->second.get_node_shared_ptr();
+    }
     std::shared_ptr<ov::Node> node;
     // STRING initializers carry data in get_data_any() with get_data()==nullptr; treat as Constants.
     if (input_tensor->get_data_location() != nullptr || input_tensor->get_data() != nullptr ||
